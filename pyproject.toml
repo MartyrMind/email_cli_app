@@ -1,0 +1,20 @@
+[project]
+name = "email-cli-app"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Nickolai Boronin",email = "nickolayb11@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.13,<4.0"
+dependencies = [
+    "textual (>=7.5.0,<8.0.0)",
+    "pylatexenc>=2.10"
+]
+
+[tool.poetry]
+packages = [{include = "email_cli_app", from = "src"}]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
