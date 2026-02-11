@@ -9,7 +9,10 @@ readme = "README.md"
 requires-python = ">=3.13,<4.0"
 dependencies = [
     "textual (>=7.5.0,<8.0.0)",
-    "pylatexenc>=2.10"
+    "pylatexenc>=2.10",
+    "aiosmtplib>=3.0.0",
+    "markdown>=3.5.0",
+    "isort (>=7.0.0,<8.0.0)"
 ]
 
 [tool.poetry]

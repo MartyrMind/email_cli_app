@@ -1,18 +1,33 @@
-from textual.app import App, ComposeResult
-from textual.containers import VerticalScroll, Container, Horizontal, Vertical
-from textual.widgets import Input, Label, TextArea, Button, Select, Static, Markdown
-from textual.reactive import reactive
-from textual.message import Message
-from pathlib import Path
+"""
+Email CLI Application - Главный модуль UI
+
+Это приложение предоставляет терминальный интерфейс для отправки email писем
+с поддержкой Markdown, вложений и множественных получателей.
+
+Архитектура:
+- app.py (этот файл): Textual UI, виджеты, обработка событий
+- email_sender.py: Логика отправки писем через SMTP
+- smtp_config.py: Конфигурация с авторизационными данными
+
+Использование:
+    python src/app.py
+
+Для настройки SMTP см. README.md
+"""
+
 import subprocess
-import asyncio
-from datetime import datetime
-from typing import List
-import time
-import re
+from pathlib import Path
+
+from textual.app import App, ComposeResult
+from textual.containers import Container, Horizontal, Vertical, VerticalScroll
+from textual.message import Message
+from textual.reactive import reactive
+from textual.widgets import (Button, Input, Label, Markdown, Select, Static,
+                             TextArea)
 
 # Импортируем модуль для отправки писем
 from email_sender import EmailSender, EmailTask
+
 
 class NotificationItem(Container):
     """Виджет для отдельного уведомления"""
@@ -95,9 +110,24 @@ class NotificationItem(Container):
     def compose(self) -> ComposeResult:
         yield Static(f"📧 To: {self.to}", classes="notification-to")
         yield Static(f"Subject: {self.subject[:30]}...", classes="notification-subject")
+
+        status_icon_map = {
+            "waiting": "⏸️",
+            "sending": "⏳",
+            "success": "✅",
+            "error": "❌"
+        }
+
+        status_icon = status_icon_map[self.status]
         
-        status_icon = "⏸️" if self.status == "waiting" else "⏳" if self.status == "sending" else "✅" if self.status == "success" else "❌"
-        status_text = "Waiting in queue..." if self.status == "waiting" else "Sending..." if self.status == "sending" else "Sent successfully" if self.status == "success" else "Failed to send"
+        status_text_map = {
+            "waiting": "Waiting in queue...",
+            "sending": "Sending...",
+            "success": "Sent successfully",
+            "error": "Failed to send"
+        }
+
+        status_text = status_text_map[self.status]
         
         yield Static(f"{status_icon} {status_text}", classes=f"notification-status {self.status}")
     
@@ -153,9 +183,9 @@ class EmailSenderApp(App):
                     Label("Mail Server", classes="section-label"),
                     Select(
                         options=[
-                            ("Gmail", "Gmail (smtp.gmail.com)"),
-                            ("Yandex", "Yandex (smtp.yandex.ru)"),
-                            ("Outlook", "Outlook (smtp.outlook.com)")
+                            ("Gmail", "Gmail"),
+                            ("Yandex", "Yandex"),
+                            ("Outlook", "Outlook")
                         ],
                         id="server_select",
                         prompt="Choose mail server...",
@@ -348,10 +378,12 @@ class EmailSenderApp(App):
             
             # Получаем выбранный сервер
             server = server_select.value if server_select.value else "Gmail"
+            self.log(f"Selected server: '{server}' (type: {type(server).__name__})")
             
             # Создаем задачу
             self.notification_counter += 1
             task_id = f"email_{self.notification_counter}"
+            self.log(f"Creating task {task_id} for {len(self.recipients)} recipient(s)")
             
             task = EmailTask(
                 task_id=task_id,
@@ -464,17 +496,30 @@ class EmailSenderApp(App):
             if result.returncode == 0 and result.stdout.strip():
                 # Файлы разделены запятыми
                 files = [f.strip() for f in result.stdout.strip().split(',') if f.strip()]
+                added_count = 0
                 for file_path in files:
                     if file_path and file_path not in self.attached_files:
-                        self.attached_files.append(file_path)
-                self.update_attachments_display()
+                        # Проверяем, что файл существует
+                        if Path(file_path).exists():
+                            self.attached_files.append(file_path)
+                            added_count += 1
+                            self.log(f"File added: {file_path}")
+                        else:
+                            self.log(f"File not found: {file_path}")
+                
+                if added_count > 0:
+                    self.update_attachments_display()
+                    self.log(f"Added {added_count} file(s)")
+                else:
+                    self.log("No valid files selected")
+            else:
+                # Пользователь отменил выбор
+                self.log("File selection cancelled")
+                
+        except subprocess.TimeoutExpired:
+            self.log("File dialog timeout")
         except Exception as e:
-            # Если диалог не сработал, добавим демонстрационные файлы
-            demo_files = ["example_document.pdf", "photo.jpg", "report.xlsx"]
-            for demo_file in demo_files:
-                if demo_file not in self.attached_files:
-                    self.attached_files.append(demo_file)
-            self.update_attachments_display()
+            self.log(f"Error opening file dialog: {e}")
     
     def update_attachments_display(self) -> None:
         """Обновление отображения списка прикрепленных файлов"""

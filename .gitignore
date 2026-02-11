@@ -2,3 +2,20 @@
 /.vscode
 /poetry.lock
 /tests
+
+# Конфигурация с авторизационными данными (не коммитить!)
+src/smtp_config.py
+
+# Логи
+*.log
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
